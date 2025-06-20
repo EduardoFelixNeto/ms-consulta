@@ -1,4 +1,7 @@
 package br.com.ufpr.tads.dac.msconsulta.repository;
 
-public class EspecialidadeRepository {
+import br.com.ufpr.tads.dac.msconsulta.entity.Especialidade;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface EspecialidadeRepository extends JpaRepository<Especialidade, String> {
 }

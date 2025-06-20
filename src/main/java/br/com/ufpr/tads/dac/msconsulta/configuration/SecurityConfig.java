@@ -1,4 +1,4 @@
-package br.com.ufpr.tads.dac.msusuario.configuration;
+package br.com.ufpr.tads.dac.msconsulta.configuration;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

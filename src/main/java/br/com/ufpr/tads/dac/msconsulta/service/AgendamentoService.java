@@ -1,2 +1,11 @@
-package br.com.ufpr.tads.dac.msconsulta.service;public class AgendamentoService {
+package br.com.ufpr.tads.dac.msconsulta.service;
+
+import br.com.ufpr.tads.dac.msconsulta.dto.AgendamentoDTO;
+
+public interface AgendamentoService {
+    AgendamentoDTO agendarConsulta(Long idConsulta, AgendamentoDTO dto);
+    void realizarCheckin(Long idAgendamento);
+    void confirmarComparecimento(Long idAgendamento);
+    void cancelarAgendamento(Long idAgendamento);
 }
+
