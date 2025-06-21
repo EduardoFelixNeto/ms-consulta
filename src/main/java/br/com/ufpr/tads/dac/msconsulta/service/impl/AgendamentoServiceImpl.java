@@ -11,6 +11,7 @@ import br.com.ufpr.tads.dac.msconsulta.service.AgendamentoService;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -83,5 +84,14 @@ public class AgendamentoServiceImpl implements AgendamentoService {
     private String gerarCodigo() {
         return "AG" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
     }
+
+    @Override
+    public List<AgendamentoDTO> listarPorPaciente(Long pacienteId) {
+        List<Agendamento> agendamentos = agendamentoRepository.findByIdPaciente(pacienteId);
+        return agendamentos.stream()
+                .map(this::toDTO)
+                .toList();
+    }
+
 }
 
