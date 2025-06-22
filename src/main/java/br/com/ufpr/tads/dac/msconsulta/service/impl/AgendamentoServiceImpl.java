@@ -1,6 +1,9 @@
 package br.com.ufpr.tads.dac.msconsulta.service.impl;
 
+import br.com.ufpr.tads.dac.msconsulta.client.UsuarioClient;
 import br.com.ufpr.tads.dac.msconsulta.dto.AgendamentoDTO;
+import br.com.ufpr.tads.dac.msconsulta.dto.CompraPontosDTO;
+import br.com.ufpr.tads.dac.msconsulta.dto.DebitoPontosDTO;
 import br.com.ufpr.tads.dac.msconsulta.entity.Agendamento;
 import br.com.ufpr.tads.dac.msconsulta.entity.Consulta;
 import br.com.ufpr.tads.dac.msconsulta.entity.StatusAgendamento;
@@ -10,6 +13,8 @@ import br.com.ufpr.tads.dac.msconsulta.repository.ConsultaRepository;
 import br.com.ufpr.tads.dac.msconsulta.service.AgendamentoService;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -19,10 +24,12 @@ public class AgendamentoServiceImpl implements AgendamentoService {
 
     private final AgendamentoRepository agendamentoRepository;
     private final ConsultaRepository consultaRepository;
+    private final UsuarioClient usuarioClient;
 
-    public AgendamentoServiceImpl(AgendamentoRepository agendamentoRepository, ConsultaRepository consultaRepository) {
+    public AgendamentoServiceImpl(AgendamentoRepository agendamentoRepository, ConsultaRepository consultaRepository, UsuarioClient usuarioClient) {
         this.agendamentoRepository = agendamentoRepository;
         this.consultaRepository = consultaRepository;
+        this.usuarioClient = usuarioClient;
     }
 
     @Override
@@ -30,28 +37,49 @@ public class AgendamentoServiceImpl implements AgendamentoService {
         Consulta consulta = consultaRepository.findById(idConsulta)
                 .orElseThrow(() -> new RuntimeException("Consulta não encontrada"));
 
-        if (consulta.getStatus() != StatusConsulta.DISPONIVEL) {
-            throw new IllegalStateException("Consulta não está disponível");
-        }
-
         Agendamento agendamento = new Agendamento();
         agendamento.setConsulta(consulta);
-        agendamento.setIdPaciente(dto.idPaciente);
-        agendamento.setDataHoraAgendamento(LocalDateTime.now());
-        agendamento.setCodigoAgendamento(gerarCodigo());
-        agendamento.setPontosUtilizados(dto.pontosUtilizados);
-        agendamento.setValorPagoComplementar(dto.valorPagoComplementar);
+        agendamento.setIdPaciente(dto.getIdPaciente());
+        agendamento.setCodigoAgendamento(UUID.randomUUID().toString());
         agendamento.setStatus(StatusAgendamento.CRIADO);
+        agendamento.setPontosUtilizados(dto.getPontosUtilizados());
 
-        agendamento = agendamentoRepository.save(agendamento);
+        BigDecimal valorPontos = BigDecimal.valueOf(dto.getPontosUtilizados()).multiply(BigDecimal.valueOf(1)); // 1 ponto = R$1,00
+        BigDecimal valorFinal = consulta.getValor().subtract(valorPontos);
+        agendamento.setValorPagoComplementar(valorFinal.max(BigDecimal.ZERO));
+        agendamento.setDataHoraAgendamento(LocalDateTime.now());
+
+        agendamentoRepository.save(agendamento);
+
+        if (dto.getPontosUtilizados() > 0) {
+            DebitoPontosDTO debito = new DebitoPontosDTO();
+            debito.setQuantidade(dto.getPontosUtilizados());
+            debito.setDescricao("AGENDAMENTO DE CONSULTA");
+
+            usuarioClient.debitarPontos(dto.getIdPaciente(), debito);
+        }
+
         return toDTO(agendamento);
     }
 
     @Override
     public void realizarCheckin(Long idAgendamento) {
-        Agendamento a = agendamentoRepository.findById(idAgendamento).orElseThrow();
-        a.setStatus(StatusAgendamento.CHECKIN);
-        agendamentoRepository.save(a);
+        Agendamento agendamento = agendamentoRepository.findById(idAgendamento).orElseThrow();
+
+        if (agendamento.getStatus() != StatusAgendamento.CRIADO) {
+            throw new IllegalStateException("Só é possível fazer check-in de agendamentos com status CRIADO.");
+        }
+
+        LocalDateTime agora = LocalDateTime.now();
+        LocalDateTime dataConsulta = agendamento.getDataHoraAgendamento();
+        long horasFaltando = Duration.between(agora, dataConsulta).toHours();
+
+        if (horasFaltando > 48 || horasFaltando < 0) {
+            throw new IllegalStateException("Check-in permitido apenas nas 48h anteriores à consulta.");
+        }
+
+        agendamento.setStatus(StatusAgendamento.CHECKIN);
+        agendamentoRepository.save(agendamento);
     }
 
     @Override
@@ -63,9 +91,28 @@ public class AgendamentoServiceImpl implements AgendamentoService {
 
     @Override
     public void cancelarAgendamento(Long idAgendamento) {
-        Agendamento a = agendamentoRepository.findById(idAgendamento).orElseThrow();
-        a.setStatus(StatusAgendamento.CANCELADO);
-        agendamentoRepository.save(a);
+        Agendamento agendamento = agendamentoRepository.findById(idAgendamento)
+                .orElseThrow(() -> new RuntimeException("Agendamento não encontrado"));
+
+        // Verifica se o status permite cancelamento
+        if (agendamento.getStatus() != StatusAgendamento.CRIADO &&
+                agendamento.getStatus() != StatusAgendamento.CHECKIN) {
+            throw new IllegalStateException("Agendamento só pode ser cancelado se estiver com status CRIADO ou CHECKIN");
+        }
+
+        // Atualiza o status
+        agendamento.setStatus(StatusAgendamento.CANCELADO);
+        agendamentoRepository.save(agendamento);
+
+        // Devolve os pontos, se necessário
+        if (agendamento.getPontosUtilizados() > 0) {
+            // Ao invés de debitar, vamos "comprar" pontos de volta (crédito)
+            CompraPontosDTO devolucao = new CompraPontosDTO(); // reutiliza a DTO de débito com lógica de crédito
+            devolucao.setQuantidadePontos(agendamento.getPontosUtilizados());
+            devolucao.setDescricao("CANCELAMENTO DE AGENDAMENTO");
+
+            usuarioClient.comprarPontos(agendamento.getIdPaciente(), devolucao); // devolve pontos ao paciente
+        }
     }
 
     private AgendamentoDTO toDTO(Agendamento a) {

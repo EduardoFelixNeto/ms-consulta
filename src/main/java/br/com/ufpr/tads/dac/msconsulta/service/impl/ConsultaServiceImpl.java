@@ -37,6 +37,7 @@ public class ConsultaServiceImpl implements ConsultaService {
         consulta.setStatus(StatusConsulta.DISPONIVEL);
 
         consulta = consultaRepository.save(consulta);
+
         return toDTO(consulta);
     }
 
