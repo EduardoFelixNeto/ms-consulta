@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 public class Consulta {
@@ -25,6 +26,18 @@ public class Consulta {
 
     @Enumerated(EnumType.STRING)
     private StatusConsulta status;
+
+    @OneToMany(mappedBy = "consulta", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private java.util.List<Agendamento> agendamentos = new java.util.ArrayList<>();
+
+    public List<Agendamento> getAgendamentos() {
+        return agendamentos;
+    }
+
+    public void setAgendamentos(List<Agendamento> agendamentos) {
+        this.agendamentos = agendamentos;
+    }
+
 
     public Long getId() {
         return id;

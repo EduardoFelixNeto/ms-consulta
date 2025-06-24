@@ -1,6 +1,7 @@
 package br.com.ufpr.tads.dac.msconsulta.controller;
 
 import br.com.ufpr.tads.dac.msconsulta.dto.AgendamentoDTO;
+import br.com.ufpr.tads.dac.msconsulta.dto.CodigoAgendamentoDTO;
 import br.com.ufpr.tads.dac.msconsulta.service.AgendamentoService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -30,7 +31,7 @@ public class AgendamentoController {
     }
 
     @PostMapping("/{id}/compareceu")
-    public ResponseEntity<Void> confirmarComparecimento(@PathVariable Long id) {
+    public ResponseEntity<Void> confirmarComparecimento(@PathVariable String id) {
         agendamentoService.confirmarComparecimento(id);
         return ResponseEntity.ok().build();
     }
@@ -45,6 +46,18 @@ public class AgendamentoController {
     public ResponseEntity<List<AgendamentoDTO>> listarPorPaciente(@RequestParam Long pacienteId) {
         List<AgendamentoDTO> agendamentos = agendamentoService.listarPorPaciente(pacienteId);
         return ResponseEntity.ok(agendamentos);
+    }
+
+    @GetMapping("/proximas-48h")
+    public ResponseEntity<List<AgendamentoDTO>> listarProximas48Horas() {
+        List<AgendamentoDTO> agendamentos = agendamentoService.listarProximas48Horas();
+        return ResponseEntity.ok(agendamentos);
+    }
+
+    @PostMapping("/comparecer")
+    public ResponseEntity<Void> confirmarComparecimentoPorCodigo(@RequestBody CodigoAgendamentoDTO dto) {
+        agendamentoService.confirmarComparecimentoPorCodigo(dto.getCodigoAgendamento());
+        return ResponseEntity.ok().build();
     }
 
 }

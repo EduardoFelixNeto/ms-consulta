@@ -47,7 +47,7 @@ public class AgendamentoServiceImpl implements AgendamentoService {
         BigDecimal valorPontos = BigDecimal.valueOf(dto.getPontosUtilizados()).multiply(BigDecimal.valueOf(1)); // 1 ponto = R$1,00
         BigDecimal valorFinal = consulta.getValor().subtract(valorPontos);
         agendamento.setValorPagoComplementar(valorFinal.max(BigDecimal.ZERO));
-        agendamento.setDataHoraAgendamento(LocalDateTime.now());
+        agendamento.setDataHoraAgendamento(consulta.getDataHora());
 
         agendamentoRepository.save(agendamento);
 
@@ -83,10 +83,16 @@ public class AgendamentoServiceImpl implements AgendamentoService {
     }
 
     @Override
-    public void confirmarComparecimento(Long idAgendamento) {
-        Agendamento a = agendamentoRepository.findById(idAgendamento).orElseThrow();
-        a.setStatus(StatusAgendamento.COMPARECEU);
-        agendamentoRepository.save(a);
+    public void confirmarComparecimento(String idAgendamento) {
+        Agendamento agendamento = agendamentoRepository.findByCodigoAgendamento(idAgendamento)
+                .orElseThrow(() -> new RuntimeException("Agendamento não encontrado"));
+
+        if (agendamento.getStatus() != StatusAgendamento.CHECKIN) {
+            throw new IllegalStateException("Presença só pode ser confirmada se o status for CHECK-IN.");
+        }
+
+        agendamento.setStatus(StatusAgendamento.COMPARECEU);
+        agendamentoRepository.save(agendamento);
     }
 
     @Override
@@ -138,6 +144,28 @@ public class AgendamentoServiceImpl implements AgendamentoService {
         return agendamentos.stream()
                 .map(this::toDTO)
                 .toList();
+    }
+
+    @Override
+    public List<AgendamentoDTO> listarProximas48Horas() {
+        LocalDateTime agora = LocalDateTime.now();
+        LocalDateTime daqui48h = agora.plusHours(48);
+        return agendamentoRepository.findByDataHoraAgendamentoBetween(agora, daqui48h)
+                .stream().map(this::toDTO).toList();
+    }
+
+    @Override
+    public void confirmarComparecimentoPorCodigo(String codigoAgendamento) {
+        Agendamento agendamento = agendamentoRepository
+                .findByCodigoAgendamento(codigoAgendamento)
+                .orElseThrow(() -> new RuntimeException("Agendamento não encontrado"));
+
+        if (agendamento.getStatus() != StatusAgendamento.CHECKIN) {
+            throw new IllegalStateException("Agendamento precisa estar com status CHECKIN para confirmar comparecimento.");
+        }
+
+        agendamento.setStatus(StatusAgendamento.COMPARECEU);
+        agendamentoRepository.save(agendamento);
     }
 
 }

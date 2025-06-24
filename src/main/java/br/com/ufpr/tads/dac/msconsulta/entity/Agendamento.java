@@ -15,6 +15,7 @@ public class Agendamento {
     private String codigoAgendamento;
 
     @ManyToOne
+    @JoinColumn(name = "consulta_id")
     private Consulta consulta;
 
     private Long idPaciente;

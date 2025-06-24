@@ -1,9 +1,11 @@
+// ConsultaDashboardDTO.java
 package br.com.ufpr.tads.dac.msconsulta.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
-public class ConsultaDTO {
+public class ConsultaDashboardDTO {
     public Long id;
     public String codigo;
     public LocalDateTime dataHora;
@@ -12,6 +14,7 @@ public class ConsultaDTO {
     public BigDecimal valor;
     public int vagas;
     public String status;
+    public List<AgendamentoResumoDTO> agendamentos;
 
     public Long getId() {
         return id;
@@ -76,5 +79,12 @@ public class ConsultaDTO {
     public void setStatus(String status) {
         this.status = status;
     }
-}
 
+    public List<AgendamentoResumoDTO> getAgendamentos() {
+        return agendamentos;
+    }
+
+    public void setAgendamentos(List<AgendamentoResumoDTO> agendamentos) {
+        this.agendamentos = agendamentos;
+    }
+}
